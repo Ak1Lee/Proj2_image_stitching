@@ -193,43 +193,51 @@ def cylindrical_to_normal(cylindrical_img, f):
     return normal_img
 
 
+def focus_lenth_correct(f,l):
 
-f = 2230  # 设置适当的焦距
+    print("l:", l)
+    c = 2 * math.pi * f
+    gap = c - l
+    print("c:", c)
+    theta_g = gap / f
+    f_p = f * (1 - (theta_g / (2 * math.pi)))
+    print("suggest f:", f_p)
 
 
-# 加载图像
-# w = 1536
-images = [f'pano1/100NIKON-DSCN00{i:02d}_DSCN00{i:02d}.JPG' for i in range(25, 8,-1)]
-image_list = [cv2.imread(image_path) for image_path in images]
+if __name__ == "__main__":
+    command = "use pre-data"
+    # command = "run data"
 
-valid_x_area = get_valid_width(image_list[0])
-h, w = image_list[0].shape[:2]
-print(valid_x_area)
-valid_length = valid_x_area[1] - valid_x_area[0] + 1
+    f = 2230  # 设置适当的焦距
+    # 加载图像
+    # w = 1536
+    images = [f'pano1/100NIKON-DSCN00{i:02d}_DSCN00{i:02d}.JPG' for i in range(25, 8,-1)]
+    image_list = [cv2.imread(image_path) for image_path in images]
 
-# 得到变换的图片组和对应的偏移
-warped_imgs, offset = compute_images_offsets(image_list, f)
+    valid_x_area = get_valid_width(image_list[0])
+    h, w = image_list[0].shape[:2]
+    print(valid_x_area)
+    valid_length = valid_x_area[1] - valid_x_area[0] + 1
 
-# 使用 pickle 反序列化数据
-# with open('warped_imgs.pkl', 'rb') as file:
-#     warped_imgs = pickle.load(file)
-# with open('offset.pkl', 'rb') as file:
-#     offset = pickle.load(file)
+    if command == "use pre_data":
+        # 使用 pickle 反序列化数据
+        with open('warped_imgs.pkl', 'rb') as file:
+            warped_imgs = pickle.load(file)
+        with open('offset.pkl', 'rb') as file:
+            offset = pickle.load(file)
+    else:
+        # 得到变换的图片组和对应的偏移
+        warped_imgs, offset = compute_images_offsets(image_list, f)
 
-print(offset)
-l = offset[-1][0]
 
-print("l:",l)
-c = 2 * math.pi * f
-gap = c-l
-print("c:",c)
-theta_g = gap/f
-f_p = f * (1 - (theta_g/(2*math.pi)))
-print(f_p)
 
-# 保存中间结果
-pickle.dump(warped_imgs, open('warped_imgs.pkl', 'wb'))
-pickle.dump(offset,open('offset.pkl', 'wb'))
 
-panorama = stitch_images_o(warped_imgs,offset)
-cv2.imwrite("panorama_myrascas",panorama)
+    print("picture offset : ", offset)
+    focus_lenth_correct(f,offset[-1][0])
+
+    # 保存中间结果
+    pickle.dump(warped_imgs, open('warped_imgs.pkl', 'wb'))
+    pickle.dump(offset,open('offset.pkl', 'wb'))
+
+    panorama = stitch_images_o(warped_imgs,offset)
+    cv2.imwrite("panorama_myrascas",panorama)
