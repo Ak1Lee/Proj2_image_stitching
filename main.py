@@ -3,7 +3,7 @@ import numpy as np
 import math
 import pickle
 import ransac
-
+from concurrent.futures import ProcessPoolExecutor
 def cylindrical_projection(img, f):
 
     """对图像进行柱面投影并返回有效的 x 方向范围"""
@@ -45,6 +45,38 @@ def cylindrical_projection(img, f):
     x_min, x_max = x_indices.min(), x_indices.max()
 
     cylindrical_img = cylindrical_img[:,x_min:x_max+1,:]
+    return cylindrical_img, (x_min, x_max)
+
+def cylindrical_projection_pallel(img, f):
+    h, w = img.shape[:2]
+    cylindrical_img = np.zeros_like(img)
+    mask = np.zeros((h, w), dtype=np.uint8)
+    x_c = w / 2
+    y_c = h / 2
+
+    def project_pixel(y, x):
+        x_cyl = int(f * np.arctan((x - w / 2) / f) + w / 2)
+        y_cyl = int(f * (y - h / 2) / np.sqrt((x - w / 2) ** 2 + f ** 2) + h / 2)
+        if 0 <= x_cyl < w and 0 <= y_cyl < h:
+            cylindrical_img[y_cyl, x_cyl] = img[y, x]
+            mask[y_cyl, x_cyl] = 1
+        return (y_cyl, x_cyl)
+
+    with ProcessPoolExecutor() as executor:
+        # 创建一个futures字典，用于存放每个像素的投影任务
+        futures = {executor.submit(project_pixel, y, x): (y, x) for y in range(h) for x in range(w)}
+
+        # 等待所有任务完成，并更新圆柱投影图像和掩码
+        for future in futures:
+            y, x = futures[future]
+            try:
+                _ = future.result()
+            except Exception as e:
+                print(f"Error processing pixel ({y}, {x}): {e}")
+
+    x_indices = np.where(mask.any(axis=0))[0]
+    x_min, x_max = x_indices.min(), x_indices.max()
+    cylindrical_img = cylindrical_img[:, x_min:x_max+1, :]
     return cylindrical_img, (x_min, x_max)
 
 def get_valid_width(img):
@@ -205,8 +237,8 @@ def focus_lenth_correct(f,l):
 
 
 if __name__ == "__main__":
-    command = "use pre-data"
-    # command = "run data"
+    # command = "use pre-data"
+    command = "run data"
 
     f = 2230  # 设置适当的焦距
     # 加载图像
